@@ -1,0 +1,103 @@
+{
+    "version": "0",
+    "id": "a2b05c8c-b499-26ad-a418-3d63c34f5c57",
+    "detail-type": "Security Hub Findings - Imported",
+    "source": "aws.securityhub",
+    "account": "123456789012",
+    "time": "2021-10-30T06:07:09Z",
+    "region": "us-west-2",
+    "resources": [
+      "arn:aws:securityhub:us-west-2::product/aws/guardduty/arn:aws:guardduty:us-west-2:123456789012:detector/e2b94c2eb2e1dcd5f66cd618f9ee7797/finding/0ebdf424f5c9f66f08841269c140a1b3"
+    ],
+    "detail": {
+      "findings": [
+        {
+          "ProductArn": "arn:aws:securityhub:us-west-2::product/aws/guardduty",
+          "Types": [
+            "TTPs/Command and Control/Trojan:EC2-DNSDataExfiltration!DNS"
+          ],
+          "SourceUrl": "https://us-west-2.console.aws.amazon.com/guardduty/home?region=us-west-2#/findings?macros=current&fId=0ebdf424f5c9f66f08841269c140a1b3",
+          "Description": "EC2 instance i-99999999 is attempting to query domain names that resemble exfiltrated data. This could be an indication of a compromised instance.",
+          "ProductName": "GuardDuty",
+          "SchemaVersion": "2018-10-08",
+          "FirstObservedAt": "2021-09-15T06:41:53.000Z",
+          "GeneratorId": "arn:aws:guardduty:us-west-2:123456789012:detector/e2b94c2eb2e1dcd5f66cd618f9ee7797",
+          "CreatedAt": "2021-09-15T07:09:23.731Z",
+          "RecordState": "ACTIVE",
+          "Title": "Data exfiltration through DNS queries from EC2 instance i-99999999.",
+          "Workflow": {
+            "Status": "NEW"
+          },
+          "LastObservedAt": "2021-10-29T22:53:34.000Z",
+          "Severity": {
+            "Normalized": 75,
+            "Label": "HIGH",
+            "Product": 8
+          },
+          "UpdatedAt": "2021-10-30T00:45:19.992Z",
+          "CompanyName": "Amazon",
+          "FindingProviderFields": {
+            "Types": [
+              "TTPs/Command and Control/Trojan:EC2-DNSDataExfiltration!DNS"
+            ],
+            "Severity": {
+              "Normalized": 75,
+              "Label": "HIGH",
+              "Product": 8
+            }
+          },
+          "WorkflowState": "NEW",
+          "ProductFields": {
+            "aws/guardduty/service/count": "47",
+            "aws/guardduty/service/action/dnsRequestAction/blocked": "false",
+            "aws/guardduty/service/action/dnsRequestAction/domain": "0ydb9enobxacj_waacabfeabygfxaaeagi-daqaocwkgkacgqabbwtbmqkx9il.yayayuhnwaaaqeicgcadnsctltgaaaaentcydt0pht62rolpcrgejyrhq.fyzrkwjowut-tpsjklyfqhsw.loganding123test.com",
+            "aws/guardduty/service/archived": "false",
+            "aws/guardduty/service/serviceName": "guardduty",
+            "aws/guardduty/service/evidence": "",
+            "aws/guardduty/service/resourceRole": "TARGET",
+            "aws/guardduty/service/action/dnsRequestAction/protocol": "0",
+            "aws/guardduty/service/detectorId": "e2b94c2eb2e1dcd5f66cd618f9ee7797",
+            "aws/guardduty/service/eventFirstSeen": "2021-09-15T06:41:53.000Z",
+            "aws/guardduty/service/additionalInfo/domain": "0ydb9enobxacj_waacabfeabygfxaaeagi-daqaocwkgkacgqabbwtbmqkx9il.yayayuhnwaaaqeicgcadnsctltgaaaaentcydt0pht62rolpcrgejyrhq.fyzrkwjowut-tpsjklyfqhsw.loganding123test.com",
+            "aws/guardduty/service/eventLastSeen": "2021-10-29T22:53:34.000Z",
+            "aws/guardduty/service/action/actionType": "DNS_REQUEST",
+            "aws/securityhub/FindingId": "arn:aws:securityhub:us-west-2::product/aws/guardduty/arn:aws:guardduty:us-west-2:123456789012:detector/e2b94c2eb2e1dcd5f66cd618f9ee7797/finding/0ebdf424f5c9f66f08841269c140a1b3",
+            "aws/securityhub/ProductName": "GuardDuty",
+            "aws/securityhub/CompanyName": "Amazon"
+          },
+          "AwsAccountId": "123456789012",
+          "Region": "us-west-2",
+          "Id": "arn:aws:guardduty:us-west-2:123456789012:detector/e2b94c2eb2e1dcd5f66cd618f9ee7797/finding/0ebdf424f5c9f66f08841269c140a1b3",
+          "Resources": [
+            {
+              "Partition": "aws",
+              "Type": "AwsEc2Instance",
+              "Details": {
+                "AwsEc2Instance": {
+                  "Type": "m4.large",
+                  "VpcId": "vpc-0496d6b7aa847b2dd",
+                  "ImageId": "ami-99999999",
+                  "IpV4Addresses": [
+                    "172.16.0.30"
+                  ],
+                  "SubnetId": "subnet-064b678143ce5acac",
+                  "LaunchedAt": "2021-09-15T06:29:46.000Z",
+                  "IamInstanceProfileArn": "arn:aws:iam::123456789012:instance-profile/my-guardduty-tester-RedTeamInstanceProfile-1N8RE1U426U93"
+                }
+              },
+              "Region": "us-west-2",
+              "Id": "arn:aws:ec2:us-west-2:123456789012:instance/i-99999999",
+              "Tags": {
+                "GeneratedFindingInstaceTag1": "GeneratedFindingInstaceTagValue1",
+                "GeneratedFindingInstaceTag2": "GeneratedFindingInstaceTagValue2",
+                "GeneratedFindingInstaceTag3": "GeneratedFindingInstaceTagValue3",
+                "GeneratedFindingInstaceTag4": "GeneratedFindingInstaceTagValue4",
+                "GeneratedFindingInstaceTag5": "GeneratedFindingInstaceTagValue5",
+                "GeneratedFindingInstaceTag6": "GeneratedFindingInstaceTagValue6"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }

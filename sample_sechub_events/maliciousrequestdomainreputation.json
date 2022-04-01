@@ -1,0 +1,104 @@
+{
+    "version": "0",
+    "id": "8ec8ace7-2e1e-93fa-2785-84ba11265c62",
+    "detail-type": "Security Hub Findings - Imported",
+    "source": "aws.securityhub",
+    "account": "123456789012",
+    "time": "2021-10-30T06:07:04Z",
+    "region": "us-west-2",
+    "resources": [
+      "arn:aws:securityhub:us-west-2::product/aws/guardduty/arn:aws:guardduty:us-west-2:123456789012:detector/e2b94c2eb2e1dcd5f66cd618f9ee7797/finding/36be676a8eb21bf51a3fe9fad5e9cc56"
+    ],
+    "detail": {
+      "findings": [
+        {
+          "ProductArn": "arn:aws:securityhub:us-west-2::product/aws/guardduty",
+          "Types": [
+            "TTPs/Impact:EC2-MaliciousDomainRequest.Reputation"
+          ],
+          "SourceUrl": "https://us-west-2.console.aws.amazon.com/guardduty/home?region=us-west-2#/findings?macros=current&fId=36be676a8eb21bf51a3fe9fad5e9cc56",
+          "Description": "EC2 instance i-99999999 is querying a low reputation domain that is associated with known malicious domains.",
+          "ProductName": "GuardDuty",
+          "SchemaVersion": "2018-10-08",
+          "FirstObservedAt": "2021-10-30T00:43:43.000Z",
+          "GeneratorId": "arn:aws:guardduty:us-west-2:123456789012:detector/e2b94c2eb2e1dcd5f66cd618f9ee7797",
+          "CreatedAt": "2021-10-30T01:34:05.668Z",
+          "RecordState": "ACTIVE",
+          "Title": "Domain related to known malicious domains queried by EC2 instance i-99999999.",
+          "Workflow": {
+            "Status": "NEW"
+          },
+          "LastObservedAt": "2021-10-30T00:44:10.000Z",
+          "Severity": {
+            "Normalized": 75,
+            "Label": "HIGH",
+            "Product": 8
+          },
+          "UpdatedAt": "2021-10-30T02:19:22.859Z",
+          "CompanyName": "Amazon",
+          "FindingProviderFields": {
+            "Types": [
+              "TTPs/Impact:EC2-MaliciousDomainRequest.Reputation"
+            ],
+            "Severity": {
+              "Normalized": 75,
+              "Label": "HIGH",
+              "Product": 8
+            }
+          },
+          "WorkflowState": "NEW",
+          "ProductFields": {
+            "aws/guardduty/service/action/dnsRequestAction/blocked": "false",
+            "aws/guardduty/service/additionalInfo/threatListName": "Amazon",
+            "aws/guardduty/service/archived": "false",
+            "aws/guardduty/service/evidence/threatIntelligenceDetails.0_/threatNames": "[]",
+            "aws/guardduty/service/resourceRole": "TARGET",
+            "aws/guardduty/service/count": "4",
+            "aws/guardduty/service/action/dnsRequestAction/domain": "microsoft-windows.3322.org",
+            "aws/guardduty/service/serviceName": "guardduty",
+            "aws/guardduty/service/action/dnsRequestAction/protocol": "UDP",
+            "aws/guardduty/service/detectorId": "e2b94c2eb2e1dcd5f66cd618f9ee7797",
+            "aws/guardduty/service/eventFirstSeen": "2021-10-30T00:43:43.000Z",
+            "aws/guardduty/service/eventLastSeen": "2021-10-30T00:44:10.000Z",
+            "aws/guardduty/service/evidence/threatIntelligenceDetails.0_/threatListName": "Amazon",
+            "aws/guardduty/service/action/actionType": "DNS_REQUEST",
+            "aws/securityhub/FindingId": "arn:aws:securityhub:us-west-2::product/aws/guardduty/arn:aws:guardduty:us-west-2:123456789012:detector/e2b94c2eb2e1dcd5f66cd618f9ee7797/finding/36be676a8eb21bf51a3fe9fad5e9cc56",
+            "aws/securityhub/ProductName": "GuardDuty",
+            "aws/securityhub/CompanyName": "Amazon"
+          },
+          "AwsAccountId": "123456789012",
+          "Region": "us-west-2",
+          "Id": "arn:aws:guardduty:us-west-2:123456789012:detector/e2b94c2eb2e1dcd5f66cd618f9ee7797/finding/36be676a8eb21bf51a3fe9fad5e9cc56",
+          "Resources": [
+            {
+              "Partition": "aws",
+              "Type": "AwsEc2Instance",
+              "Details": {
+                "AwsEc2Instance": {
+                  "Type": "m4.large",
+                  "VpcId": "GeneratedFindingVPCId",
+                  "ImageId": "ami-99999999",
+                  "IpV4Addresses": [
+                    "172.16.0.30"
+                  ],
+                  "SubnetId": "subnet-064b678143ce5acac",
+                  "LaunchedAt": "2021-09-15T06:29:46.000Z",
+                  "IamInstanceProfileArn": "arn:aws:iam::123456789012:instance-profile/my-guardduty-tester-RedTeamInstanceProfile-1N8RE1U426U93"
+                }
+              },
+              "Region": "us-west-2",
+              "Id": "arn:aws:ec2:us-west-2:123456789012:instance/i-99999999",
+              "Tags": {
+                "GeneratedFindingInstaceTag1": "GeneratedFindingInstaceTagValue1",
+                "GeneratedFindingInstaceTag2": "GeneratedFindingInstaceTagValue2",
+                "GeneratedFindingInstaceTag3": "GeneratedFindingInstaceTagValue3",
+                "GeneratedFindingInstaceTag4": "GeneratedFindingInstaceTagValue4",
+                "GeneratedFindingInstaceTag5": "GeneratedFindingInstaceTagValue5",
+                "GeneratedFindingInstaceTag6": "GeneratedFindingInstaceTagValue6"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
