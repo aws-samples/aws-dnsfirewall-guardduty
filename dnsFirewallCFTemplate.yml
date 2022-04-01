@@ -1,0 +1,709 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# MIT No Attribution
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify,
+# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Example of using AWS DNS Firewall for automatic blocking of suspicious traffic detected by GuardDuty. "
+Parameters:
+  AdminEmail:
+    Type: String
+    Default: "me@example.com"
+  DnsFireWallBlockDomainListName:
+    Type: String
+    Description: "DNS Firewall Blocked Domain List Name"
+    Default: "DemoBlockedDomainListAutoUpdated"
+  DnsFirewallBlockAction:
+    Type: String
+    AllowedValues:
+      - "NODATA"
+      - "NXDOMAIN"
+    Default: "NODATA"
+  DnsFireWallAlertDomainListName:
+    Type: String
+    Description: "DNS Firewall Alert Domain List Name"
+    Default: "DemoAlertDomainListAutoUpdated"
+
+Resources:
+  ################################################################################################
+  # Demo VPCs Setup                                                                              #          
+  ################################################################################################
+  # Creation of a pair of dummy test VPCs to be associated with our DNS firewall Rule Group
+  DemoVPCOne:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: "Name"
+          Value: "demoDnsFirewallVpc"
+  InternetGatewayVpcOne:
+    Type: AWS::EC2::InternetGateway
+  InternetGatewayAttachmentVpcOne:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref InternetGatewayVpcOne
+      VpcId: !Ref DemoVPCOne
+  PublicSubnetVpcOne:
+    Type: AWS::EC2::Subnet
+    Properties:
+        CidrBlock: "10.0.0.0/24"
+        VpcId: !Ref DemoVPCOne
+        AvailabilityZone:
+          Fn::Select: 
+            - 0
+            - Fn::GetAZs: ""
+  PublicRouteTableVpcOne:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref DemoVPCOne
+  PublicSubnetVpcOneRouteTableAssoc:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties: 
+        RouteTableId: !Ref PublicRouteTableVpcOne
+        SubnetId: !Ref PublicSubnetVpcOne
+  PublicDefaultRouteVpcOne:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId:
+         Ref: PublicRouteTableVpcOne
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId:
+         Ref: InternetGatewayVpcOne
+  DemoVPCTwo:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: "10.1.0.0/16"
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: "Name"
+          Value: "demoDnsFirewallVpcTwo"
+  InternetGatewayVpcTwo:
+    Type: AWS::EC2::InternetGateway
+  InternetGatewayAttachmentVpcTwo:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref InternetGatewayVpcTwo
+      VpcId: !Ref DemoVPCTwo
+  PublicSubnetVpcTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+        CidrBlock: "10.1.0.0/24"
+        VpcId: !Ref DemoVPCTwo
+        AvailabilityZone:
+          Fn::Select: 
+            - 0
+            - Fn::GetAZs: ""
+  PublicRouteTableVpcTwo:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref DemoVPCTwo
+  PublicSubnetVpcTwoRouteTableAssoc:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties: 
+        RouteTableId: !Ref PublicRouteTableVpcTwo
+        SubnetId: !Ref PublicSubnetVpcTwo
+  PublicDefaultRouteVpcTwo:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId:
+         Ref: PublicRouteTableVpcTwo
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId:
+         Ref: InternetGatewayVpcTwo
+  ################################################################################################
+  # DNS Resolver Query Logs                                                                                 #          
+  ################################################################################################
+  CloudWatchDnsResolverLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "dnsFirewallLogGroup"
+  DnsResolverQueryLoggingConfig:
+    Type: AWS::Route53Resolver::ResolverQueryLoggingConfig
+    Properties: 
+      DestinationArn: !GetAtt CloudWatchDnsResolverLogGroup.Arn
+      Name: "DnsFirewallQueryLogging"
+  DnsResQueryLogAssocVpcOne:
+    Type: AWS::Route53Resolver::ResolverQueryLoggingConfigAssociation
+    Properties: 
+      ResolverQueryLogConfigId: !Ref DnsResolverQueryLoggingConfig
+      ResourceId: !Ref DemoVPCOne
+  DnsResQueryLogAssocVpcTwo:
+    Type: AWS::Route53Resolver::ResolverQueryLoggingConfigAssociation
+    Properties: 
+      ResolverQueryLogConfigId: !Ref DnsResolverQueryLoggingConfig
+      ResourceId: !Ref DemoVPCTwo
+  ################################################################################################
+  # DNS Resolver Firewall Rule Group Domain Lists and VPC association                                                                       #          
+  ################################################################################################
+  DnsFirewallBlockDomainList:
+    Type: AWS::Route53Resolver::FirewallDomainList
+    Properties: 
+      Name: !Ref DnsFireWallBlockDomainListName
+  DnsFirewallAlertDomainList:
+    Type: AWS::Route53Resolver::FirewallDomainList
+    Properties: 
+      Name: !Ref DnsFireWallAlertDomainListName
+  DnsFirewallRuleGroup:
+    Type: AWS::Route53Resolver::FirewallRuleGroup
+    Properties:
+      FirewallRules:
+        -
+           Action: BLOCK
+           BlockResponse: !Ref DnsFirewallBlockAction
+           FirewallDomainListId: !GetAtt DnsFirewallBlockDomainList.Id
+           Priority: 1
+        -
+           Action: ALERT
+           FirewallDomainListId: !GetAtt DnsFirewallAlertDomainList.Id
+           Priority: 2
+      Name: "demoDnsFirewallRuleGroup"
+  DnsFirewallRuleGroupAssociation:
+    Type: AWS::Route53Resolver::FirewallRuleGroupAssociation
+    Properties: 
+      FirewallRuleGroupId: !Ref DnsFirewallRuleGroup
+      Name: "demoFirewallRuleGroupAssociation"
+      Priority: 102
+      VpcId: !Ref DemoVPCOne
+      MutationProtection: DISABLED
+  DnsFirewallRuleGroupAssociationTwo:
+    Type: AWS::Route53Resolver::FirewallRuleGroupAssociation
+    Properties: 
+      FirewallRuleGroupId: !Ref DnsFirewallRuleGroup
+      Name: "demoFirewallRuleGroupAssociationVpcTwo"
+      Priority: 102
+      VpcId: !Ref DemoVPCTwo
+      MutationProtection: DISABLED
+  ################################################################################################
+  # DynamoDB Table for Findings and Domain details                                                                      #          
+  ################################################################################################
+  GuardDutytoDNSFirewallDDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      BillingMode: PAY_PER_REQUEST      
+      AttributeDefinitions:
+        -
+          AttributeName: "DomainName"
+          AttributeType: "S"
+
+      KeySchema:
+        -
+          AttributeName: "DomainName"
+          KeyType: "HASH"
+  # SNS topic used for sending messages to admins
+  GuardDutyToDNSFirewallSNSTopic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      Subscription:
+        -
+          Endpoint: !Ref AdminEmail
+          Protocol: "email"
+  ################################################################################################
+  # Lambda function code and execution roles                                                     #                                                       #          
+  ################################################################################################
+  CheckAndUpdateDnsFirewallDomainListFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "index.lambda_handler"
+      Role: !GetAtt [ CheckAndUpdateDnsFirewallDomainListLambdaExecutionRole, Arn ]
+      Runtime: python3.8
+      Environment:
+        Variables:
+          fwBlockedDomainListId: !Ref DnsFirewallBlockDomainList
+          fwAlertDomainListId: !Ref DnsFirewallAlertDomainList
+      Timeout: 60
+      Code:
+        ZipFile: |
+          #### Trick to update boto3 to the latest version which supports DNS Firewall
+          #### Use it if you don't use a layer with an up to date boto3 library
+          import sys
+          from pip._internal import main
+          main(['install', '-I', '-q', 'boto3', '--target', '/tmp/', '--no-cache-dir', '--disable-pip-version-check'])
+          sys.path.insert(0,'/tmp/')
+          #
+          import json
+          import boto3
+          import os,logging
+          from botocore.exceptions import ClientError
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          firewallBlockedDomainListId = os.environ['fwBlockedDomainListId']
+          firewallAlertDomainListId = os.environ['fwAlertDomainListId']
+          client = boto3.client('route53resolver')
+
+          def checkifDomainInDomainList(client,event,firewallDomainListId):
+              """
+              """
+              try:
+                logger.info("CheckingDomain")
+                response = client.list_firewall_domains(
+                  FirewallDomainListId= firewallDomainListId
+                )
+                if (event['DomainName']+".") in response['Domains']:
+                  event['DomainInDomainList'] = True
+                  return event
+                else:
+                  event['DomainInDomainList'] = False
+                  event['DomainListAction'] ='ADD'
+                  return event
+              except Exception as e:
+                raise
+
+          def updateDomainList(client,event,firewallDomainListId,operation="ADD"):
+              """
+              Parameters:
+              operation (str): Update Operation valid values 'ADD','REMOVE', 'REPLACE'
+              updatedDomainList (list(str)): A List of dns domains to use in the update operation
+              firewallDomainListId (str): The ID of the domain list whose domains you want to update
+              """
+              try:
+                  updatedDomainList = [event["DomainName"]]
+                  if len(updatedDomainList) > 0:
+                      response = client.update_firewall_domains(
+                      FirewallDomainListId = firewallDomainListId,
+                      Operation= operation,
+                      Domains= updatedDomainList
+                      )
+                      event['DomainInDomainList'] = True
+                      return event
+                  else:
+                      logger.info("No Operation performed: empty input domain list")
+                      event['DomainInDomainList'] = False
+                      return event
+              except Exception as e:
+                  logger.error(e)
+                  raise
+
+          def lambda_handler(event, context):
+              if event['Severity'] == 'HIGH' or event['Severity'] == 'CRITICAL' :
+                firewallDomainListId = firewallBlockedDomainListId
+              else:
+                firewallDomainListId = firewallAlertDomainListId
+              if event['DomainListAction'] == 'ADD':
+                  return updateDomainList(client,event,firewallDomainListId,"ADD")
+              else:
+                return checkifDomainInDomainList(client,event,firewallDomainListId)
+  CheckAndUpdateDnsFirewallDomainListLambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: UpdateDnsFirewallDomainListLambdaExecutionRolePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+              - Effect: Allow
+                Action:
+                  - "route53resolver:GetFirewallDomainList"
+                  - "route53resolver:UpdateFirewallDomains"
+                  - "route53resolver:ListFirewallDomains"
+                "Resource": "*"
+
+    # state machine that orchestrates Lambda functions to block traffic and record 
+  CheckDomainInDynamoLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "index.lambda_handler"
+      Role: !GetAtt [ UpdateDynamoWithDomainInfoLambdaExecutionRole, Arn ]
+      Runtime: python3.8
+      Environment:
+        Variables:
+          dynamoTableName: !Ref GuardDutytoDNSFirewallDDBTable
+      Timeout: 60
+      Code:
+        ZipFile: |
+          #==========================================================================================================#
+          # Lambda function used to check if a Domain Name already exist in the DynamoDB                             #
+          #==========================================================================================================#
+          import boto3
+          import os, json, logging
+          from botocore.exceptions import ClientError
+          from boto3.dynamodb.conditions import Key, Attr
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          #==========================================================================================================#
+          # Variables                                                                                                #
+          #==========================================================================================================#
+          dynamoTableName= os.environ['dynamoTableName']
+          resource = boto3.resource('dynamodb')
+          table = resource.Table(dynamoTableName)
+          def getDomain(record):
+              """
+              Retrieve the Domain Record in a DynamoDB 
+              If entry does not exist return False return True otherwise
+              """
+              response = table.get_item(
+                  Key={ 'DomainName': record['DomainName'] }        
+              )
+              if "Item" in response:
+                  logger.info("log -- Domain %s already in table" %record['DomainName'])
+                  record['DomainInDynamo'] = True
+                  record['DomainListAction'] = "Check"
+                  return record
+              else:
+                  logger.info("log -- Domain %s not in table" %record['DomainName'])
+                  record['DomainInDynamo'] = False
+                  record['DomainListAction'] = "ADD"
+                  return record
+          def lambda_handler(event, context):
+              logger.info("log -- Event: %s " % json.dumps(event))
+              return getDomain(event)
+  UpdateDynamoWithDomainInfoLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "index.lambda_handler"
+      Role: !GetAtt [ UpdateDynamoWithDomainInfoLambdaExecutionRole, Arn ]
+      Runtime: python3.8
+      Environment:
+        Variables:
+          dynamoTableName: !Ref GuardDutytoDNSFirewallDDBTable
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import os, json, logging
+          from botocore.exceptions import ClientError
+          from boto3.dynamodb.conditions import Key, Attr
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          dynamoTableName= os.environ['dynamoTableName']
+          try:
+              resource = boto3.resource('dynamodb')
+              table = resource.Table(dynamoTableName)
+          except Exception as e:
+              logger.error('Error Connecting to DynamoDB')
+              raise
+          
+          def insertDomainName(record):
+              """
+              Insert or Update Record in DynamoDB
+              
+              """
+              if record['DomainInDynamo'] == True:
+                  recordlist = [record['FindingId']]
+                  response = table.update_item (
+                      Key= { "DomainName" : record['DomainName']},
+                      UpdateExpression="SET #f = list_append(#f,:r)",
+                      ExpressionAttributeNames={
+                          "#f": "FindingsList",
+                      },
+                      ExpressionAttributeValues={
+                      ':r': recordlist
+                      }
+                  )
+                  return response
+              else:
+                  response = table.put_item(
+                      Item = {
+                          "DomainName" : record['DomainName'],
+                          "FindingsList" : [record['FindingId']]
+                          }
+                  )
+                  return response
+                        
+          def lambda_handler(event, context):
+              logger.info("log -- Event: %s " % json.dumps(event))
+              return insertDomainName(event)
+  UpdateDynamoWithDomainInfoLambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: GuardDutytoFirewallRecordLambdaPolicy 
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                - "logs:CreateLogGroup"
+                - "logs:CreateLogStream"
+                - "logs:PutLogEvents"
+                Resource: "arn:aws:logs:*:*:*"
+              - Effect: Allow
+                Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:DeleteItem
+                - dynamodb:UpdateItem
+                Resource: !GetAtt GuardDutytoDNSFirewallDDBTable.Arn
+  ################################################################################################
+  # Step Function                                                                                #          
+  ################################################################################################
+  SecurityHubtoDnsFirewallStateMachine:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      RoleArn: !GetAtt 'SecurityHubtoDnsFirewallStateMachineExecutionRole.Arn'
+      DefinitionString: !Sub |
+        {
+          "StartAt": "getDomainFromDynamo",
+          "Comment": "Triggered by GuardDuty finding and Security Hub ",
+          "States": {
+            "getDomainFromDynamo": {
+              "Type": "Task",
+              "Resource": "${CheckDomainInDynamoLambdaFunction.Arn}",
+              "Parameters": {
+                "Comment": "Relevant fields from the GuardDuty / Security Hub finding",
+                "DomainName.$": "$.detail.findings[0].ProductFields.aws/guardduty/service/action/dnsRequestAction/domain",
+                "Timestamp.$": "$.detail.findings[0].ProductFields.aws/guardduty/service/eventLastSeen",
+                "FindingId.$": "$.id",
+                "AccountId.$": "$.detail.findings[0].AwsAccountId",
+                "Region.$": "$.detail.findings[0].Resources[0].Region",
+                "SourceUrl.$": "$.detail.findings[0].SourceUrl",
+                "Types.$": "$.detail.findings[0].FindingProviderFields.Types",
+                "Severity.$": "$.detail.findings[0].Severity.Label"
+                },
+              "ResultPath": "$",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "notifyFailure"
+                }
+              ],
+              "Next": "isDomainInDynamo"
+            },
+            "isDomainInDynamo": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.DomainInDynamo",
+                  "BooleanEquals": false,
+                  "Next": "addDomainToDnsFirewallDomainList"
+                },
+                {
+                  "Variable": "$.DomainInDynamo",
+                  "BooleanEquals": true,
+                  "Next": "getDomainFromDomainList"
+                }
+              ]
+            },
+            "addDomainToDnsFirewallDomainList": {
+              "Type": "Task",
+              "Resource": "${CheckAndUpdateDnsFirewallDomainListFunction.Arn}",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "notifyFailure"
+                }
+              ],
+              "Next": "updateDynamoDB"
+            },
+            "updateDynamoDB": {
+              "Type": "Task",
+              "Resource": "${UpdateDynamoWithDomainInfoLambdaFunction.Arn}",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "notifyFailure"
+                }
+              ],
+              "Next": "notifySuccess"
+            },
+            "getDomainFromDomainList": {
+              "Type": "Task",
+              "Resource": "${CheckAndUpdateDnsFirewallDomainListFunction.Arn}",
+              "ResultPath": "$",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "notifyFailure"
+                }
+              ],
+              "Next": "isDomainInDomainList"
+            },
+            "isDomainInDomainList": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.DomainInDomainList",
+                  "BooleanEquals": false,
+                  "Next": "addDomainToDnsFirewallDomainList"
+                },
+                {
+                  "Variable": "$.DomainInDomainList",
+                  "BooleanEquals": true,
+                  "Next": "updateDynamoDB"
+                }
+              ]
+            },
+            "notifySuccess": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "Message": {
+                  "Blocked": "true",
+                  "Input.$": "$"
+                },
+                "TopicArn": "${GuardDutyToDNSFirewallSNSTopic}"
+              },
+              "End": true
+            },
+            "notifyFailure": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "Message": {
+                  "Blocked": "false",
+                  "Input.$": "$"
+                },
+                "TopicArn": "${GuardDutyToDNSFirewallSNSTopic}"
+              },
+              "End": true
+            }
+          }
+        }
+  SecurityHubtoDnsFirewallStateMachineExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: GuardDutytoFirewallStateMachineExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: 
+                  - !GetAtt CheckDomainInDynamoLambdaFunction.Arn
+                  - !GetAtt CheckAndUpdateDnsFirewallDomainListFunction.Arn
+                  - !GetAtt UpdateDynamoWithDomainInfoLambdaFunction.Arn
+              - Effect: Allow
+                Action:
+                - sns:Publish
+                Resource: !Ref GuardDutyToDNSFirewallSNSTopic
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+  ################################################################################################
+  # EventBridge Event Rule                                                                               #          
+  ################################################################################################
+  # EventBridge Event Rule - For Security Hub event published to EventBridge:
+  SecurityHubtoFirewallStateMachineEvent:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "Security Hub - GuardDuty findings with DNS Domain"
+      EventPattern:
+        source:
+        - aws.securityhub
+        detail:
+          findings:
+            ProductFields:
+              aws/guardduty/service/action/dnsRequestAction/blocked:
+                - "exists": true
+      State: "ENABLED"
+      Targets:
+        -
+          Arn: !GetAtt SecurityHubtoDnsFirewallStateMachine.Arn
+          RoleArn: !GetAtt SecurityHubtoFirewallStateMachineEventRole.Arn
+          Id: "GuardDutyEvent-StepFunctions-Trigger"
+  # Permissions for EventBridge to invoke the state machine
+  SecurityHubtoFirewallStateMachineEventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:               
+        - PolicyName: GuardDutytoFirewallStateMachineStartExecution
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !GetAtt SecurityHubtoDnsFirewallStateMachine.Arn
